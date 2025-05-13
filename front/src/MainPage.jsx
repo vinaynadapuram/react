@@ -12,6 +12,8 @@ export default function MainPage() {
 
   const [allData, setAllData] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [update,setUpdate]=useState(false)
   const addName = useRef();
   const addPlace = useRef();
   const addAge = useRef();
@@ -22,41 +24,61 @@ export default function MainPage() {
     const formData = new FormData(event.target);
     const userDetails = Object.fromEntries(formData.entries());
     if (isEditing) {
-      await fetch(`http://localhost:4000/myusers?id=${editId.current}`, {
-        method: "PUT",
-        body: JSON.stringify(userDetails),
-      })
+              setUpdate(true)
+
+      await fetch(
+        `https://react-bmqk.onrender.com/myusers?id=${editId.current}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(userDetails),
+        }
+      )
         .then((response) => response.json())
         .then((data) => {
           console.log("Success:", data);
+          setUpdate(false)
+          window.location.reload()
         })
         .catch((error) => {
           console.error("Error:", error);
         });
     } else {
-      await fetch("http://localhost:4000/myusers", {
+      await fetch("https://react-bmqk.onrender.com/myusers", {
         method: "POST",
         body: JSON.stringify(userDetails),
       })
         .then((response) => response.json())
         .then((data) => {
           console.log("Success:", data);
+          // fetchData();
+          // // ✅ Clear fields
+          // addName.current.value = "";
+          // addAge.current.value = "";
+          // addPlace.current.value = "";
+          window.location.reload()
         })
+
         .catch((error) => {
           console.error("Error:", error);
         });
     }
   };
-  const fetchData = () => {
-    fetch("http://localhost:4000")
-      .then((response) => response.json())
-      .then((data) => {
-        setAllData(data);
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-      });
+  /////fetch data
+
+  const fetchData = async () => {
+    setLoading(true); // Start loading
+
+    try {
+      const response = await fetch("https://react-bmqk.onrender.com");
+      const data = await response.json();
+      setAllData(data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false); // Stop loading no matter what
+    }
   };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -80,18 +102,20 @@ export default function MainPage() {
       "Are you sure you want to delete this entry?"
     );
     if (confirmDelete) {
-      fetch(`http://localhost:4000/myusers?id=${item._id}`, {
+      fetch(`https://react-bmqk.onrender.com/myusers?id=${item._id}`, {
         method: "DELETE",
-      }).then((response) => {
-        if (!response.ok) {
-          throw new Error("Not deleted");
-        }
-        return response.json();
-      });
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Not deleted");
+          }
+          fetchData();
+
+          return response.json();
+        })
+        .then((json) => console.log(json))
+        .catch((err) => console.log(err));
     }
-    fetchData()
-      .then((json) => console.log(json))
-      .catch((err) => console.log(err));
   };
   ///search
   const handleSearch = (query) => {
@@ -102,17 +126,22 @@ export default function MainPage() {
     if (query.place) params.append("place", query.place);
 
     console.log(params.toString());
-    fetch(`http://localhost:4000/myusers?${params.toString()}`)
+    fetch(`https://react-bmqk.onrender.com/myusers?${params.toString()}`)
       .then((response) => response.json())
       .then((data) => setAllData(data))
       .catch((error) => console.error("Error:", error));
   };
 
-  
   return (
     <div>
       <h1 style={{ textAlign: "center" }}>Node js Application</h1>
-      <div style={{ display: "flex",justifyContent:"space-around"}}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-around",
+          alignItems: "center",
+        }}
+      >
         <div>
           <div
             style={{
@@ -124,18 +153,34 @@ export default function MainPage() {
             {/* <h4>Add New</h4> */}
             {activeComponent === "add" ? <h2>Add New</h2> : <h2>Search</h2>}
             {activeComponent === "add" ? (
-              <button style={{
-                fontSize:"30px",border:"none",background:"none",display:"flex",alignItems:"center"
-              }} onClick={() => setActiveComponent("search")}>
+              <button
+                style={{
+                  fontSize: "30px",
+                  border: "none",
+                  background: "none",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                onClick={() => setActiveComponent("search")}
+              >
                 <BsSearchHeart />
-
               </button>
             ) : (
-              <button style={{
-                fontSize:"30px",border:"none",background:"none",display:"flex",alignItems:"center"
-              }} onClick={() => setActiveComponent("add")}><RiUserHeartFill />
-
-</button>
+              <button
+                style={{
+                  fontSize: "30px",
+                  border: "none",
+                  background: "none",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                onClick={() => {
+                  setActiveComponent("add");
+                  fetchData();
+                }}
+              >
+                <RiUserHeartFill />
+              </button>
             )}
           </div>
 
@@ -146,6 +191,7 @@ export default function MainPage() {
               addAge={addAge}
               addName={addName}
               addPlace={addPlace}
+              update={update}
             />
           ) : (
             <Search onSearch={handleSearch} />
@@ -153,46 +199,61 @@ export default function MainPage() {
         </div>
         {/* Display submitted data in a table */}
         <div>
-          <div className="data-table"  style={{overflowX:"auto",height:"350px"}}>
-            <table style={{ width: "100vh" }}>
-              <thead>
-                <tr>
-                  <th>S.No</th>
-                  <th>Name</th>
-                  <th>Age</th>
-                  <th>Place</th>
-                  <th>Edit</th>
-                  <th>Delete</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allData.map((item, index) => (
-                  <tr key={index}>
-                    <td>{index + 1}</td>
-                    <td>{item.name}</td>
-                    <td>{item.age}</td>
-                    <td>{item.place}</td>
-                    <td>
-                      <button style={{
-                fontSize:"30px",border:"none",background:"none",
-              }} onClick={() => handleEdit(item)}><TbUserEdit />
-</button>
-                    </td>
-                    <td>
-                      <button style={{
-                fontSize:"30px",border:"none",background:"none",
-              }}
-                        onClick={() => handleDelete(item)}
-                      >
-                        <MdDeleteForever />
-
-                      </button>
-                    </td>
+          {loading ? (
+            <div className="spinner"></div>
+          ) : (
+            <div
+              className="data-table"
+              style={{ overflowX: "auto", height: "350px" }}
+            >
+              <table style={{ width: "100vh" }}>
+                <thead>
+                  <tr>
+                    <th>S.No</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Place</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {allData.map((item, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>{item.name}</td>
+                      <td>{item.age}</td>
+                      <td>{item.place}</td>
+                      <td>
+                        <button
+                          style={{
+                            fontSize: "30px",
+                            border: "none",
+                            background: "none",
+                          }}
+                          onClick={() => handleEdit(item)}
+                        >
+                          <TbUserEdit />
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          style={{
+                            fontSize: "30px",
+                            border: "none",
+                            background: "none",
+                          }}
+                          onClick={() => handleDelete(item)}
+                        >
+                          <MdDeleteForever />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

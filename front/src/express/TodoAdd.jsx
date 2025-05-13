@@ -1,7 +1,7 @@
 import React from 'react'
 
 export default function TodoAdd(props) {
-  const {isEditing,addAge,addData,addName,addPlace} =props
+  const {isEditing,addAge,addData,addName,addPlace,update} =props
   return (
   <div>
       <form className="bogo-container" onSubmit={addData}>
@@ -34,7 +34,7 @@ export default function TodoAdd(props) {
             name="place"
           />
         </div>
-        <button type="submit">{isEditing ? "Update" : "Add"}</button>
+        <button type="submit">{isEditing ? update===true?"updating":"update" : "Add"}</button>
        </form>
    </div>
 )
